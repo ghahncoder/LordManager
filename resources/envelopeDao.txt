@@ -1,0 +1,704 @@
+package br.com.docusignrizzo.br.com.lordsmanager.dao;
+
+import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+
+import com.migcomponents.migbase64.Base64;
+import com.sankhya.util.UIDGenerator;
+
+import br.com.docusignrizzo.br.com.lordsmanager.model.Arquivo;
+import br.com.docusignrizzo.br.com.lordsmanager.model.EnvelopeCabecalho;
+import br.com.docusignrizzo.br.com.lordsmanager.model.Envolvido;
+import br.com.docusignrizzo.service.PoiPreencheDoc;
+import br.com.docusignrizzo.util.Global;
+import br.com.sankhya.jape.EntityFacade;
+import br.com.sankhya.jape.bmp.PersistentLocalEntity;
+import br.com.sankhya.jape.core.JapeSession;
+import br.com.sankhya.jape.core.JapeSession.SessionHandle;
+import br.com.sankhya.jape.br.com.lordsmanager.dao.JdbcWrapper;
+import br.com.sankhya.jape.sql.NativeSql;
+import br.com.sankhya.jape.vo.DynamicVO;
+import br.com.sankhya.jape.vo.EntityVO;
+import br.com.sankhya.modelcore.MGEModelException;
+import br.com.sankhya.modelcore.auth.AuthenticationInfo;
+import br.com.sankhya.modelcore.util.EntityFacadeFactory;
+
+
+public class EnvelopeDAO {
+
+	public EnvelopeCabecalho geraCabecalhoIDS (final BigDecimal codContrato, final String tipoDoc) throws Exception {
+		
+		final EntityFacade entityFacade = EntityFacadeFactory.getDWFFacade();
+		JdbcWrapper jdbcWrapperChave = Global.iniciaSessao();
+		
+		EnvelopeCabecalho envcab = new EnvelopeCabecalho();
+
+		final ChaveDAO chaveDAO = new ChaveDAO(jdbcWrapperChave);
+		final SimpleDateFormat sdfDB = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		
+        final AuthenticationInfo authenticationInfo = AuthenticationInfo.getCurrent();
+        
+        
+        final String tipoEnvio = consultaTipoEnvioEnvelope(tipoDoc);
+        
+    	// Cria value object para a instância do jape
+		final DynamicVO dvoIDS = (DynamicVO) entityFacade.getDefaultValueObjectInstance("AD_INTDOCUSIGN");
+		
+		final BigDecimal nuIDS = chaveDAO.geraTGFNUM("AD_INTDOCUSIGN", "NUIDS");
+				
+		dvoIDS.setProperty("NUIDS", nuIDS);
+		dvoIDS.setProperty("ORIGEM", tipoDoc);
+		dvoIDS.setProperty("CODORIGEM", codContrato);
+		dvoIDS.setProperty("DHCAD", Timestamp.valueOf(sdfDB.format(new Date())));
+		dvoIDS.setProperty("DHENV", null);
+		dvoIDS.setProperty("STATUS", "pendente");
+		
+		dvoIDS.setProperty("ASSUNTO", geraTituloEmail(codContrato,tipoDoc));
+		dvoIDS.setProperty("TIPOENVIO", tipoEnvio);
+		
+		dvoIDS.setProperty("IDENTIFICADOR", null);
+		dvoIDS.setProperty("CODUSU", authenticationInfo.getUserID());
+		
+		dvoIDS.setProperty("OBSERVACAO", null);
+
+		entityFacade.createEntity("AD_INTDOCUSIGN", (EntityVO) dvoIDS);
+		System.out.println("Gerou registro em AD_INTDOCUSIGN. nuIDS: " + nuIDS.toString());
+
+    	Global.fechaSessao(jdbcWrapperChave);
+        System.out.println("Fechou a sessão");
+        
+        envcab.setNuIds(nuIDS);
+        envcab.setCodOrigem(codContrato);
+        envcab.setTipoEnvio(tipoEnvio);
+        envcab.setAssunto(geraTituloEmail(codContrato,tipoDoc));
+        
+		return envcab;
+		
+	}
+	
+	public Boolean permiteNovoEnvelope (final BigDecimal codContrato,
+			                            final String origem) throws Exception {
+
+		JdbcWrapper jdbcWrapper = Global.iniciaSessao();
+		
+		final NativeSql nsValidaEnv = new NativeSql(jdbcWrapper);
+		
+		int qtd = 0;
+		
+		nsValidaEnv.appendSql("SELECT COUNT(1) QTD" + 
+						 	  "  FROM AD_INTDOCUSIGN IDS" + 
+							  " WHERE IDS.CODORIGEM = " + codContrato.toString() +
+							  "   AND IDS.ORIGEM = '" + origem + "'" + 
+							  "   AND IDS.STATUS NOT IN (SELECT STATUS FROM AD_IDSPARSTAT WHERE NUPARIDS = 1)");
+
+		ResultSet rsModPoi = nsValidaEnv.executeQuery();
+
+
+		while(rsModPoi.next()) {
+
+			qtd = rsModPoi.getBigDecimal("QTD").intValue();
+			
+		}
+		
+		Global.fechaSessao(jdbcWrapper);
+		
+		if (qtd > 0) {
+		   return false;
+		} else {
+		   return true;
+		}
+		
+	}
+	
+	public String geraTituloEmail (final BigDecimal codContrato,
+            					   final String origem) throws Exception {
+
+		JdbcWrapper jdbcWrapper = Global.iniciaSessao();
+		
+		final NativeSql nsTipoEnv = new NativeSql(jdbcWrapper);
+		
+		String titulo = null;
+		
+		nsTipoEnv.appendSql("SELECT TITULOEMAIL" + 
+				            "  FROM AD_IDSTIPOENV" + 
+				            " WHERE SIGLA = '" + origem + "'");
+		
+		ResultSet rsTipoEnv = nsTipoEnv.executeQuery();
+		
+		
+		while(rsTipoEnv.next()) {
+		
+		     titulo = rsTipoEnv.getString("TITULOEMAIL").replaceAll("&CONTRATO&", codContrato.toString());
+		     break;
+		}
+		
+		Global.fechaSessao(jdbcWrapper);
+		
+		return titulo;
+		
+    }
+
+	public String consultaSiglaTipoEnvelope (final BigDecimal nuTipoEnv) throws Exception {
+
+		JdbcWrapper jdbcWrapper = Global.iniciaSessao();
+		
+		final NativeSql nsTipoEnv = new NativeSql(jdbcWrapper);
+		
+		String sigla = null;
+		
+		nsTipoEnv.appendSql("SELECT SIGLA" + 
+					        "  FROM AD_IDSTIPOENV" + 
+						    " WHERE NUTIPOENV = " + nuTipoEnv.toString());
+		
+		ResultSet rsTipoEnv = nsTipoEnv.executeQuery();
+		
+		
+		while(rsTipoEnv.next()) {
+			sigla = rsTipoEnv.getString("SIGLA");
+			break;
+		}
+		
+		Global.fechaSessao(jdbcWrapper);
+		
+		return sigla;
+	
+	}	
+	
+	public String consultaTipoEnvioEnvelope (final String origem) throws Exception {
+
+		JdbcWrapper jdbcWrapper = Global.iniciaSessao();
+		
+		final NativeSql nsTipoEnv = new NativeSql(jdbcWrapper);
+		
+		String tipoEnvio = null;
+		
+		nsTipoEnv.appendSql("SELECT TIPOENVIO" + 
+				            "  FROM AD_IDSTIPOENV" + 
+				            " WHERE SIGLA = '" + origem + "'");
+		
+		ResultSet rsTipoEnv = nsTipoEnv.executeQuery();
+		
+		
+		while(rsTipoEnv.next()) {
+		
+			tipoEnvio = rsTipoEnv.getString("TIPOENVIO");
+		    break;
+		}
+		
+		Global.fechaSessao(jdbcWrapper);
+		
+		return tipoEnvio;
+	
+	}	
+	
+	public Boolean geraArquivosIDS (final BigDecimal codContrato,
+									final BigDecimal codIntegracao,
+									final String tipoEnvelope) throws Exception {
+		
+		final EntityFacade entityFacade = EntityFacadeFactory.getDWFFacade();
+		final EntityFacade entityFacadeEnv = EntityFacadeFactory.getDWFFacade();
+		
+		JdbcWrapper jdbcWrapperArqs = Global.iniciaSessao();
+		JdbcWrapper jdbcWrapperChave = Global.iniciaSessao();
+		
+		final NativeSql nsModPoi = new NativeSql(jdbcWrapperArqs);
+		final ChaveDAO chaveDAO = new ChaveDAO(jdbcWrapperChave);
+		
+		int qtdPoi = 0;
+		
+		if (tipoEnvelope.equals("CTLTV")) {
+
+			nsModPoi.appendSql("SELECT POI.CODPOI," + 
+					           "	   UPPER(SUBSTR(POI.NOMEARQUIVO, INSTR(POI.NOMEARQUIVO, '.',-1)+1)) EXTENSAO" + 
+							   "  FROM TIMLTV LTV," + 
+							   "       TIMLTE LTE," + 
+							   "       AD_LOTDOCUSIGN LDS," + 
+							   "       TIMPOI POI" + 
+							   " WHERE LTV.LTVCODIGO = " + codContrato.toString() +  
+							   "   AND LTV.LTVLOTE   = LTE.LTECODIGO" + 
+							   "   AND LTE.LTELOTEAMENTO = LDS.LOTCODIGO" + 
+							   "   AND LDS.CODPOI    = RZZ_MODELOLOT_POI(LTV.LTVCODIGO, '" + tipoEnvelope + "')" + 
+							   "   AND LDS.CODPOI    = POI.CODPOI"); 
+			
+		} else  { 
+		
+			nsModPoi.appendSql("SELECT POI.CODPOI," + 
+							   "       UPPER(SUBSTR(POI.NOMEARQUIVO, INSTR(POI.NOMEARQUIVO, '.',-1)+1)) EXTENSAO" + 
+							   "  FROM AD_IDSTIPOENV  TIP," + 
+							   "       TIMPOI POI" + 
+							   " WHERE TIP.SIGLA = '" + tipoEnvelope + "'" + 
+							   "   AND TIP.CODPOI IS NOT NULL" + 
+							   "   AND TIP.CODPOI = POI.CODPOI"); 		
+		}
+		
+		
+		
+
+		ResultSet rsModPoi = nsModPoi.executeQuery();
+		
+
+		while(rsModPoi.next()) {
+			
+			qtdPoi+=1;
+			
+			
+			PoiPreencheDoc poi = new PoiPreencheDoc();
+			Arquivo arq = new Arquivo();
+			ByteArrayOutputStream out = poi.geraDocPoiLTV(codContrato, rsModPoi.getBigDecimal("CODPOI"), arq);
+			System.out.println("Retorno numPaginas: " + arq.getNumPaginas().toString());
+			
+			BigDecimal idIDSArq = chaveDAO.carregar("AD_IDSARQ", "NUIDS", codIntegracao, "NUIDSARQ");
+			
+			// Cria value object para a instância do jape
+			final DynamicVO dvoIDSArq = (DynamicVO) entityFacade.getDefaultValueObjectInstance("AD_IDSARQ");
+			
+			dvoIDSArq.setProperty("NUIDS", codIntegracao);
+			dvoIDSArq.setProperty("NUIDSARQ", idIDSArq);
+			dvoIDSArq.setProperty("NOMEARQUIVO", "rizzo_" + UIDGenerator.getNextID() + "." + rsModPoi.getString("EXTENSAO"));
+			dvoIDSArq.setProperty("CAMINHO", null);
+			dvoIDSArq.setProperty("TIPOARQUIVO", rsModPoi.getString("EXTENSAO")); 
+			dvoIDSArq.setProperty("CODPOI", rsModPoi.getBigDecimal("CODPOI"));
+			dvoIDSArq.setProperty("NUMPAGINAS", BigDecimal.valueOf((long) arq.getNumPaginas()));
+			dvoIDSArq.setProperty("RUBRICA", "S");
+			dvoIDSArq.setProperty("ASSINATURA", "S");
+			
+			byte[] docByte = out.toByteArray();
+			
+			dvoIDSArq.setProperty("DOCORIGINAL", docByte);
+			dvoIDSArq.setProperty("DOCBASE64", Base64.encodeToChar(docByte, false));
+			
+			entityFacade.createEntity("AD_IDSARQ", (EntityVO) dvoIDSArq);
+			System.out.println("Gerou registro em AD_IDSARQ.");
+			
+			//Insere registros na tabela de Envolvidos
+			ArrayList<Envolvido> listEnv = listEnvolvidos(codContrato, tipoEnvelope, codIntegracao);
+			
+			if(listEnv.size() == 0) {
+				throw new MGEModelException("Contrato não possui envolvidos cadastrados! Não será possível criar o envelope.");
+			}
+			
+
+			System.out.println("Ira criar signatarios");
+			long offsetRubricaX=0;
+			long offsetXAssinaPJ=0;
+			long offsetYAssinaPJ=0;
+			long offsetXAprova=0;
+			String tipoSigAux="nenhum";
+			
+			for(int i=0;i<listEnv.size();i++) {
+
+				System.out.println("Nome "+listEnv.get(i).getNome());
+				
+				// Cria value object para a instância do jape
+				final DynamicVO dvoArqEnv = (DynamicVO) entityFacadeEnv.getDefaultValueObjectInstance("AD_IDSARQSIG");
+				
+				System.out.println("Passou aqui 1");
+				
+				if(listEnv.get(i).getCpfCnpj() == null) {
+					
+					throw new MGEModelException(
+							listEnv.get(i).getNome() + " sem CPF informado!");
+					
+				}		
+			
+				if(listEnv.get(i).getEmail() == null) {
+					throw new MGEModelException(listEnv.get(i).getNome() + " sem EMAIL informado!");
+				}
+
+				
+				
+				if (listEnv.get(i).getTipPes().equals("J")) {
+					System.out.println("Entrou teste PJ 1");
+					
+					System.out.println("tipoSigAux 1: " + tipoSigAux);
+					System.out.println("listEnv.get(i).getTipoSig(): " + listEnv.get(i).getTipoSig());
+					
+					if (listEnv.get(i).getTipoSig().equals(tipoSigAux)) {
+						offsetXAssinaPJ = offsetXAssinaPJ + listEnv.get(i).getDeslocaXassinapj().longValue();
+						System.out.println("offsetXAssinaPJ gh: " + offsetXAssinaPJ);
+					
+					} else {
+						offsetXAssinaPJ = listEnv.get(i).getOffsetXasspj().longValue();
+						offsetYAssinaPJ = listEnv.get(i).getOffsetYasspj().longValue();
+						
+						tipoSigAux = listEnv.get(i).getTipoSig();
+						System.out.println("tipoSigAux 2: " + tipoSigAux);
+					}	
+					
+				}
+				
+
+				if (i == 0) {
+					offsetRubricaX = listEnv.get(i).getOffsetXrub().longValue();
+					
+				} else {
+					if (listEnv.get(i).getRubrica().equals("S")) {
+						System.out.println("@@GH entrou i > 0");
+						offsetRubricaX = offsetRubricaX + listEnv.get(i).getDeslocRubrica().longValue();
+						System.out.println("offsetRubricaX: " + String.valueOf(offsetRubricaX));
+					}
+					
+				}
+				
+				
+				System.out.println("i: " + i);
+				
+				//Insere registros na tabela de Envolvidos
+				dvoArqEnv.setProperty("NUIDSARQ", idIDSArq);
+				dvoArqEnv.setProperty("NUIDS", codIntegracao);
+				dvoArqEnv.setProperty("NUIDSSIG", BigDecimal.valueOf(i+1));
+				dvoArqEnv.setProperty("CODPARC", listEnv.get(i).getCodpar());
+				dvoArqEnv.setProperty("CODCONTATO", listEnv.get(i).getCodcontato());
+				dvoArqEnv.setProperty("EMAIL", listEnv.get(i).getEmail());
+				dvoArqEnv.setProperty("NOME", listEnv.get(i).getNome());
+				dvoArqEnv.setProperty("CGC_CPF", listEnv.get(i).getCpfCnpj());
+				dvoArqEnv.setProperty("SIGLA", listEnv.get(i).getTipoSig());
+				dvoArqEnv.setProperty("ASSINA", listEnv.get(i).getAssina());
+				dvoArqEnv.setProperty("RUBRICA", listEnv.get(i).getRubrica());
+				dvoArqEnv.setProperty("APROVA", listEnv.get(i).getAprova());
+				dvoArqEnv.setProperty("ORDEM", BigDecimal.valueOf(listEnv.get(i).getOrdem()));
+				dvoArqEnv.setProperty("ANCORA_ASS", listEnv.get(i).getAncoraAssina());				
+				System.out.println("listEnv.get(i).getTippes(): " + listEnv.get(i).getTipPes());
+				
+				if (listEnv.get(i).getTipPes().equals("J")) {
+					
+					System.out.println("Entrou teste PJ");
+					
+					dvoArqEnv.setProperty("DESLOCXASSPJ", listEnv.get(i).getDeslocaXassinapj());                         
+					dvoArqEnv.setProperty("DESLOCYASSPJ", listEnv.get(i).getDeslocaYassinapj()); 		
+					System.out.println("Ira atribuir OFFSETXASS:" + BigDecimal.valueOf(offsetXAssinaPJ).toString());
+					dvoArqEnv.setProperty("OFFSETXASSPJ", BigDecimal.valueOf(offsetXAssinaPJ));
+					dvoArqEnv.setProperty("OFFSETYASSPJ", BigDecimal.valueOf(offsetYAssinaPJ));
+					
+				} else {
+					
+					// Tratamento diferenciado para assinatura das Testemunhas
+					if (listEnv.get(i).getAncoraAssina().equals("TESTEMUNHA1") ||
+						listEnv.get(i).getAncoraAssina().equals("TESTEMUNHA2")) {
+						
+						System.out.println("Offset X Ass normal");
+						dvoArqEnv.setProperty("OFFSETXASS", BigDecimal.ZERO);
+						dvoArqEnv.setProperty("OFFSETYASS", BigDecimal.valueOf(10L));
+						
+					} else {
+						System.out.println("Offset X Ass normal");
+						dvoArqEnv.setProperty("OFFSETXASS", listEnv.get(i).getOffsetXass());
+						dvoArqEnv.setProperty("OFFSETYASS", listEnv.get(i).getOffsetYass());
+					}
+					
+				}
+				
+			    if (listEnv.get(i).getRubrica().equals("S")) {  
+//					dvoArqEnv.setProperty("ANCORA_RUB", listEnv.get(i).getAncoraRubrica());
+//					dvoArqEnv.setProperty("OFFSETXRUB", BigDecimal.valueOf(offsetRubricaX));
+//					dvoArqEnv.setProperty("OFFSETYRUB", listEnv.get(i).getOffsetYrub());
+//					dvoArqEnv.setProperty("DESLOCRUBRICA", listEnv.get(i).getDeslocRubrica());
+					
+			    	dvoArqEnv.setProperty("ANCORA_RUB", listEnv.get(i).getAncoraRubrica());
+					dvoArqEnv.setProperty("OFFSETXRUB", BigDecimal.valueOf(-80L));
+					dvoArqEnv.setProperty("OFFSETYRUB", BigDecimal.valueOf(offsetRubricaX));
+					dvoArqEnv.setProperty("DESLOCRUBRICA", listEnv.get(i).getDeslocRubrica());
+
+			    }
+				
+			    if (listEnv.get(i).getAprova().equals("S")) {  
+			    	
+			    	if (offsetRubricaX == 0L) {
+			    		offsetXAprova = listEnv.get(i).getOffsetXapr().longValue();
+			    	} else {
+			    		offsetXAprova = offsetXAprova + listEnv.get(i).getDeslocaXapr().longValue();
+			    	}
+			    	
+					dvoArqEnv.setProperty("ANCORA_APR", listEnv.get(i).getAncoraAprova());
+					dvoArqEnv.setProperty("OFFSETXAPR", BigDecimal.valueOf(offsetXAprova));
+					dvoArqEnv.setProperty("OFFSETYAPR", listEnv.get(i).getOffsetYapr());
+					dvoArqEnv.setProperty("DESLOCXAPROVA", listEnv.get(i).getDeslocaXapr());
+			    }
+			    
+			    dvoArqEnv.setProperty("STATUS", "inicial");
+
+				System.out.println("Passou aqui 2");
+				
+				entityFacadeEnv.createEntity("AD_IDSARQSIG", (EntityVO) dvoArqEnv);
+				
+				System.out.println("Gravou um envolvido");
+		    }	
+			
+		}	
+        	
+    	Global.fechaSessao(jdbcWrapperArqs);
+    	Global.fechaSessao(jdbcWrapperChave);
+    	System.out.println("Fechou a sessão");
+    	
+    	if (qtdPoi==0) {
+    		
+    		throw new MGEModelException("Não existe modelo DOCX associado a este Loteamento/Contrato.");
+    	}
+    	
+    	return true;
+			
+	}
+	
+	public void atualizaArquivoFinal(final BigDecimal nuIDS,
+ 				  					 final BigDecimal nuIDSArq,
+					  				 final String nomeArqFinal,
+					  				 final BigDecimal nuAttach,
+					  				 final char[] arqBase64) throws Exception {
+
+		System.out.println("Ira tentar gravar arquivo final");
+		
+		SessionHandle hnd = null;
+		try {
+			hnd = JapeSession.open();
+			EntityFacade entityFacade = EntityFacadeFactory.getDWFFacade();
+			
+			PersistentLocalEntity entityArqVO = entityFacade.findEntityByPrimaryKey("AD_IDSARQ", new Object[]{ nuIDS, nuIDSArq });
+			
+			EntityVO vo = entityArqVO.getValueObject();
+			DynamicVO registroVo = (DynamicVO) vo;
+			
+			registroVo.setProperty("NUATTACH", nuAttach);
+			registroVo.setProperty("CAMINHO", nomeArqFinal);
+			registroVo.setProperty("DOCFINAL", arqBase64);
+			
+			entityArqVO.setValueObject(vo);
+			
+			System.out.println("Atualizou final");
+		
+		} finally {
+			JapeSession.close(hnd);
+		}
+		
+    }	
+		
+
+	public void atualizaEnvelopeCabecalho(final BigDecimal codIntegracao,
+									      final String status,
+										  final String identificador,
+										  final String jsonRequest,
+										  final String jsonResponse) throws Exception {
+
+		final SimpleDateFormat sdfDB = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		System.out.println("ira tentar gravar arquivo final");
+		
+		SessionHandle hnd = null;
+		try {
+			hnd = JapeSession.open();
+			EntityFacade entityFacade = EntityFacadeFactory.getDWFFacade();
+			
+			PersistentLocalEntity entityArqVO = entityFacade.findEntityByPrimaryKey("AD_INTDOCUSIGN", new Object[]{ codIntegracao });
+			
+			EntityVO vo = entityArqVO.getValueObject();
+			DynamicVO registroVo = (DynamicVO) vo;
+			
+			registroVo.setProperty("STATUS", status);
+			registroVo.setProperty("DHENV", Timestamp.valueOf(sdfDB.format(new Date())));
+			registroVo.setProperty("IDENTIFICADOR", identificador);
+			registroVo.setProperty("JSONREQUEST", jsonRequest.toCharArray());
+			registroVo.setProperty("JSONRESPONSE", jsonResponse.toCharArray());
+			
+			entityArqVO.setValueObject(vo);
+		
+		} finally {
+			JapeSession.close(hnd);
+		}
+	
+	}	
+	
+
+	public void atualizaEnvelopeCabecalho(final BigDecimal codIntegracao,
+									      final String status) throws Exception {
+
+		SessionHandle hnd = null;
+		try {
+			hnd = JapeSession.open();
+			EntityFacade entityFacade = EntityFacadeFactory.getDWFFacade();
+			
+			PersistentLocalEntity entityArqVO = entityFacade.findEntityByPrimaryKey("AD_INTDOCUSIGN", new Object[]{ codIntegracao });
+			
+			EntityVO vo = entityArqVO.getValueObject();
+			DynamicVO registroVo = (DynamicVO) vo;
+			
+			registroVo.setProperty("STATUS", status);
+			
+			entityArqVO.setValueObject(vo);
+		
+		} finally {
+			JapeSession.close(hnd);
+		}
+	
+	}	
+	
+	
+	public void atualizaEmailsEnvelope(final ArrayList<Envolvido> listEnv) throws Exception {
+
+		System.out.println("Entrou atualizaEmailsEnvelope");
+		
+		SessionHandle hnd = null;
+		try {
+
+			hnd = JapeSession.open();
+			EntityFacade entityFacade = EntityFacadeFactory.getDWFFacade();
+			
+			for(int i=0; i < listEnv.size(); i++) {
+				
+				PersistentLocalEntity entityArqVO = entityFacade.findEntityByPrimaryKey("AD_IDSARQSIG", new Object[]{ listEnv.get(i).getCodigoEnv(), 
+																													  listEnv.get(i).getCodigoArq(), 
+																													  listEnv.get(i).getCodigo() });
+				
+				EntityVO vo = entityArqVO.getValueObject();
+				DynamicVO registroVo = (DynamicVO) vo;
+				
+				registroVo.setProperty("EMAIL", listEnv.get(i).getEmail());
+				
+				entityArqVO.setValueObject(vo);
+				System.out.println("Email " + listEnv.get(i).getEmail() + " atualizado no envelope " + listEnv.get(i).getCodigoEnv().toString());
+				
+			}
+			
+		
+		} finally {
+			JapeSession.close(hnd);
+		}
+
+    }	
+	
+	
+	public Boolean geraSignatariosIDS (final BigDecimal codContrato) throws Exception {
+		
+		return true;
+		
+	}	
+	
+	private ArrayList<Envolvido> listEnvolvidos(final BigDecimal contrato, 
+											    final String tipoDoc,
+											    final BigDecimal codIntegracao) throws Exception {
+
+		System.out.println("Entrou listEnvolvidos");
+		
+		JdbcWrapper jdbcWrapperEnv = Global.iniciaSessao();
+		final NativeSql nsEnvolvido = new NativeSql(jdbcWrapperEnv);
+		
+		JdbcWrapper jdbcWrapperTipEnv = Global.iniciaSessao();
+		final NativeSql nsTipEnv = new NativeSql(jdbcWrapperTipEnv);
+		
+		ArrayList<Envolvido> envolvidos = new ArrayList<Envolvido>();
+		Envolvido env;
+		
+		
+		nsTipEnv.appendSql("SELECT DISTINCT IDS.NUIDS, IDS.ORIGEM, IDS.CODORIGEM, TSG.SIGLA TIPSIG, TSG.ORDEM"
+ 					 + "      FROM AD_INTDOCUSIGN  IDS,"
+					 + "           AD_IDSTIPOENV   ENV,"
+					 + "           AD_IDSTIPSIGENV TSG"
+					 + "     WHERE IDS.CODORIGEM = " + contrato.toString()
+					 + "       AND IDS.ORIGEM    = '" + tipoDoc + "'"
+					 + "       AND IDS.NUIDS     = " + codIntegracao.toString() 
+					 + "       AND IDS.ORIGEM    = ENV.SIGLA"
+					 + "       AND ENV.NUTIPOENV = TSG.NUTIPOENV"
+					 + "     ORDER BY TSG.ORDEM, TSG.SIGLA");
+		
+		System.out.println(nsTipEnv.getSqlBuf().toString());
+		
+		ResultSet rsTipEnv = nsTipEnv.executeQuery();
+		
+		while(rsTipEnv.next()) {
+			
+			System.out.println("Entrou loop Tipo Envolvidos: " + rsTipEnv.getString("TIPSIG"));		
+			
+			nsEnvolvido.resetSqlBuf();	
+			nsEnvolvido.appendSql("SELECT SIG.CODPARC,"
+								+ "       SIG.TIPPESSOA,"
+								+ "       SIG.CODCONTATO,"
+								+ "       SIG.RAZAOSOCIAL,"
+								+ "       SIG.NOME,"
+								+ "       SIG.CGC_CPF,"
+								+ "       SIG.EMAIL,"
+								+ "       SIG.TIPO,"
+								+ "       SIG.RUBRICA,"
+								+ "       SIG.ASSINA,"
+								+ "       SIG.APROVA,"
+								+ "       SIG.ORDEM,"
+								+ "       SIG.ANCORA_RUB,"
+								+ "       SIG.OFFSETXRUB,"
+								+ "       SIG.OFFSETYRUB,"
+								+ "       SIG.DESLOCRUBRICA,"
+								+ "       SIG.ANCORA_ASS,"
+								+ "       SIG.OFFSETXASS,"
+								+ "       SIG.OFFSETYASS,"
+								+ "       SIG.OFFSETXASSPJ,"
+								+ "       SIG.OFFSETYASSPJ,"
+								+ "       SIG.DESLOCXASSPJ,"
+								+ "       SIG.DESLOCYASSPJ,"
+								+ "       SIG.ANCORA_APR,"
+								+ "       SIG.OFFSETXAPR,"
+								+ "       SIG.OFFSETYAPR,"
+								+ "       SIG.DESLOCXAPROVA"
+								+ "  FROM TABLE(FC_IDSSIGNATARIOS_RZZ(" + contrato.toString() + ", '" + tipoDoc + "', '" + rsTipEnv.getString("TIPSIG") + "')) SIG"
+								+ " ORDER BY SIG.TIPPESSOA");
+			
+			System.out.println(nsEnvolvido.getSqlBuf().toString());
+	
+			ResultSet rsEnvolvido = nsEnvolvido.executeQuery();
+				
+			System.out.println("Entrou loop envolvidos");
+	
+			while(rsEnvolvido.next()) {
+				
+				System.out.println("Entrou loop envolvidos");
+				
+				System.out.println("Atribuiu envolvido");
+				
+				env = new Envolvido();
+				env.setCodpar(rsEnvolvido.getBigDecimal("CODPARC"));
+				env.setCodcontato(rsEnvolvido.getBigDecimal("CODCONTATO"));
+				env.setEmail(rsEnvolvido.getString("EMAIL"));
+				env.setTipPes(rsEnvolvido.getString("TIPPESSOA"));
+				env.setNome(rsEnvolvido.getString("NOME"));
+				env.setCpfCnpj(rsEnvolvido.getString("CGC_CPF"));
+				env.setTipoSig(rsEnvolvido.getString("TIPO"));
+				env.setAssina(rsEnvolvido.getString("ASSINA"));
+				env.setRubrica(rsEnvolvido.getString("RUBRICA"));
+				env.setAprova(rsEnvolvido.getString("APROVA"));
+				env.setOrdem(rsEnvolvido.getInt("ORDEM"));
+				
+				env.setAncoraRubrica(rsEnvolvido.getString("ANCORA_RUB"));
+				env.setOffsetXrub(rsEnvolvido.getBigDecimal("OFFSETXRUB"));
+				env.setOffsetYrub(rsEnvolvido.getBigDecimal("OFFSETYRUB"));
+				env.setDeslocRubrica(rsEnvolvido.getBigDecimal("DESLOCRUBRICA"));
+				
+				env.setAncoraAssina(rsEnvolvido.getString("ANCORA_ASS"));
+				env.setOffsetXass(rsEnvolvido.getBigDecimal("OFFSETXASS"));
+				env.setOffsetYass(rsEnvolvido.getBigDecimal("OFFSETYASS"));
+	
+				env.setAncoraAprova(rsEnvolvido.getString("ANCORA_APR"));
+				env.setOffsetXapr(rsEnvolvido.getBigDecimal("OFFSETXAPR"));
+				env.setOffsetYapr(rsEnvolvido.getBigDecimal("OFFSETYAPR"));
+				env.setDeslocaXapr(rsEnvolvido.getBigDecimal("DESLOCXAPROVA"));
+				
+				env.setOffsetXasspj(rsEnvolvido.getBigDecimal("OFFSETXASSPJ"));
+				env.setOffsetYasspj(rsEnvolvido.getBigDecimal("OFFSETYASSPJ"));
+				env.setDeslocaXassinapj(rsEnvolvido.getBigDecimal("DESLOCXASSPJ"));
+				env.setDeslocaYassinapj(rsEnvolvido.getBigDecimal("DESLOCYASSPJ"));
+				
+				envolvidos.add(env);
+			}
+		
+			
+		}
+		
+		System.out.println("Finalizou atribuição envolvido");
+
+    	Global.fechaSessao(jdbcWrapperEnv);
+    	Global.fechaSessao(jdbcWrapperTipEnv);
+    	System.out.println("Fechou a sessão");
+			
+		return envolvidos;
+	}	
+	
+
+}

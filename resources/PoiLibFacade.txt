@@ -1,0 +1,391 @@
+package br.com.docusignrizzo.service;
+
+import java.io.ByteArrayInputStream;
+import org.apache.commons.lang.StringUtils;
+import org.apache.poi.hwpf.HWPFDocument;
+import org.apache.poi.hwpf.usermodel.CharacterRun;
+import org.apache.poi.hwpf.usermodel.Paragraph;
+import org.apache.poi.hwpf.usermodel.Range;
+import org.apache.poi.hwpf.usermodel.Section;
+import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.xwpf.usermodel.IBody;
+import org.apache.poi.xwpf.usermodel.IBodyElement;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFFooter;
+import org.apache.poi.xwpf.usermodel.XWPFHeader;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFRun;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.apache.poi.xwpf.usermodel.XWPFTableCell;
+import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+
+public class PoiLibFacade {
+  public static Object createDOC(byte[] data) throws Exception {
+    return new HWPFDocument(new ByteArrayInputStream(data));
+  }
+  
+  public static Object createDOCX(byte[] data) throws Exception {
+    return new XWPFDocument(OPCPackage.open(new ByteArrayInputStream(data)));
+  }
+  
+  public static void replaceTextDOCX(Object obj, String findText, String replaceText) {
+    XWPFDocument docx = (XWPFDocument)obj;
+
+    for (XWPFParagraph parag : docx.getParagraphs()) {
+      for (XWPFRun run : parag.getRuns()) {
+        String text = run.getText(0);
+        if (text != null && text.contains(findText)) {
+          text = text.replace(findText, replaceText);
+          run.setText(text, 0);
+        } 
+      } 
+    }
+    
+    for (IBodyElement bodyElement : docx.getBodyElements()) {
+      IBody body = bodyElement.getBody();
+      for (XWPFParagraph parag : body.getParagraphs()) {
+        for (XWPFRun run : parag.getRuns()) {
+          String text = run.getText(0);
+          if (text != null && text.contains(findText)) {
+            text = text.replace(findText, replaceText);
+            run.setText(text, 0);
+          } 
+        } 
+      } 
+      for (XWPFTable table : body.getTables()) {
+        for (XWPFTableRow row : table.getRows()) {
+          for (XWPFTableCell cell : row.getTableCells()) {
+            for (XWPFParagraph parag : cell.getParagraphs()) {
+              for (XWPFRun run : parag.getRuns()) {
+                String text = run.getText(0);
+                if (text != null && text.contains(findText)) {
+                  text = text.replace(findText, replaceText);
+                  run.setText(text, 0);
+                } 
+              } 
+            } 
+          } 
+        } 
+      } 
+    } 
+    for (XWPFTable table : docx.getTables()) {
+      for (XWPFTableRow row : table.getRows()) {
+        for (XWPFTableCell cell : row.getTableCells()) {
+          for (XWPFParagraph parag : cell.getParagraphs()) {
+            for (XWPFRun run : parag.getRuns()) {
+              String text = run.getText(0);
+              if (text != null && text.contains(findText)) {
+                text = text.replace(findText, replaceText);
+                run.setText(text, 0);
+              } 
+            } 
+          } 
+        } 
+      } 
+    } 
+    for (XWPFHeader header : docx.getHeaderList()) {
+      for (XWPFParagraph parag : header.getParagraphs()) {
+        for (XWPFRun run : parag.getRuns()) {
+          String text = run.getText(0);
+          if (text != null && text.contains(findText)) {
+            text = text.replace(findText, replaceText);
+            run.setText(text, 0);
+          } 
+        } 
+      } 
+      for (XWPFTable table : header.getTables()) {
+        for (XWPFTableRow row : table.getRows()) {
+          for (XWPFTableCell cell : row.getTableCells()) {
+            for (XWPFParagraph parag : cell.getParagraphs()) {
+              for (XWPFRun run : parag.getRuns()) {
+                String text = run.getText(0);
+                if (text != null && text.contains(findText)) {
+                  text = text.replace(findText, replaceText);
+                  run.setText(text, 0);
+                } 
+              } 
+            } 
+          } 
+        } 
+      } 
+    } 
+    for (XWPFFooter footer : docx.getFooterList()) {
+      for (XWPFParagraph parag : footer.getParagraphs()) {
+        for (XWPFRun run : parag.getRuns()) {
+          String text = run.getText(0);
+          if (text != null && text.contains(findText)) {
+            text = text.replace(findText, replaceText);
+            run.setText(text, 0);
+          } 
+        } 
+      } 
+      for (XWPFTable table : footer.getTables()) {
+        for (XWPFTableRow row : table.getRows()) {
+          for (XWPFTableCell cell : row.getTableCells()) {
+            for (XWPFParagraph parag : cell.getParagraphs()) {
+              for (XWPFRun run : parag.getRuns()) {
+                String text = run.getText(0);
+                if (text != null && text.contains(findText)) {
+                  text = text.replace(findText, replaceText);
+                  run.setText(text, 0);
+                } 
+              } 
+            } 
+          } 
+        } 
+      } 
+    } 
+  }
+  
+  public static void replaceTextDOC(Object obj, String findText, String replaceText) {
+    HWPFDocument doc = (HWPFDocument)obj;
+    Range r1 = doc.getRange();
+    for (int i = 0; i < r1.numSections(); i++) {
+      Section s = r1.getSection(i);
+      for (int x = 0; x < s.numParagraphs(); x++) {
+        Paragraph p = s.getParagraph(x);
+        for (int z = 0; z < p.numCharacterRuns(); z++) {
+          CharacterRun run = p.getCharacterRun(z);
+          String text = run.text();
+          if (text.toUpperCase().contains(findText.toUpperCase()))
+            run.replaceText(findText, replaceText); 
+        } 
+      } 
+    } 
+  }
+  
+  public static Integer getPageCount(Object obj) {
+	  
+	  System.out.println("inicio getPageCount");
+	  XWPFDocument docx = (XWPFDocument)obj;
+	  Integer numPages = docx.getProperties().getExtendedProperties().getUnderlyingProperties().getPages();
+	  return numPages;
+	  
+  }
+  
+  public static void lineBreakDOCX(Object obj) {
+    XWPFDocument docx = (XWPFDocument)obj;
+
+    for (XWPFParagraph parag : docx.getParagraphs()) {
+      for (XWPFRun run : parag.getRuns()) {
+        String text = run.getText(0);
+        if (text != null && text.contains("&ln&")) {
+        	System.out.println("entrou linebreak1");
+        	 String[] lines = text.split("&ln&");
+                run.setText(lines[0], 0); // set first line into XWPFRun
+                for(int i=1;i<lines.length;i++){
+                	System.out.println("entrou loop linebreak");
+                    // add break and insert new text
+                    run.addBreak();
+                    run.setText(lines[i]);
+                }
+          
+          
+        } else {
+            run.setText(text, 0);
+        }
+      } 
+    }
+    
+    
+    for (IBodyElement bodyElement : docx.getBodyElements()) {
+        IBody body = bodyElement.getBody();
+        for (XWPFParagraph parag : body.getParagraphs()) {
+          for (XWPFRun run : parag.getRuns()) {
+            String text = run.getText(0);
+            if (text != null && text.contains("&ln&")) {
+            	System.out.println("entrou linebreak2");
+            	 String[] lines = text.split("&ln&");
+                    run.setText(lines[0], 0); // set first line into XWPFRun
+                    for(int i=1;i<lines.length;i++){
+                    	System.out.println("entrou loop linebreak");
+                        // add break and insert new text
+                        run.addBreak();
+                        run.setText(lines[i]);
+                    }
+              
+              
+            } else {
+                run.setText(text, 0);
+            }
+          } 
+        } 
+        for (XWPFTable table : body.getTables()) {
+          for (XWPFTableRow row : table.getRows()) {
+            for (XWPFTableCell cell : row.getTableCells()) {
+              for (XWPFParagraph parag : cell.getParagraphs()) {
+                for (XWPFRun run : parag.getRuns()) {
+                  String text = run.getText(0);
+                  if (text != null && text.contains("&ln&")) {
+                  	System.out.println("entrou linebreak3");
+                  	 String[] lines = text.split("&ln&");
+                          run.setText(lines[0], 0); // set first line into XWPFRun
+                          for(int i=1;i<lines.length;i++){
+                          	System.out.println("entrou loop linebreak");
+                              // add break and insert new text
+                              run.addBreak();
+                              run.setText(lines[i]);
+                          }
+                    
+                    
+                  } else {
+                      run.setText(text, 0);
+                  }
+                } 
+              } 
+            } 
+          } 
+        } 
+      } 
+      for (XWPFTable table : docx.getTables()) {
+        for (XWPFTableRow row : table.getRows()) {
+          for (XWPFTableCell cell : row.getTableCells()) {
+            for (XWPFParagraph parag : cell.getParagraphs()) {
+              for (XWPFRun run : parag.getRuns()) {
+                String text = run.getText(0);
+                if (text != null && text.contains("&ln&")) {
+                	System.out.println("entrou linebreak4");
+                	 String[] lines = text.split("&ln&");
+                        run.setText(lines[0], 0); // set first line into XWPFRun
+                        for(int i=1;i<lines.length;i++){
+                        	System.out.println("entrou loop linebreak");
+                            // add break and insert new text
+                            run.addBreak();
+                            run.setText(lines[i]);
+                        }
+                  
+                  
+                } else {
+                    run.setText(text, 0);
+                }
+              } 
+            } 
+          } 
+        } 
+      } 
+      for (XWPFHeader header : docx.getHeaderList()) {
+        for (XWPFParagraph parag : header.getParagraphs()) {
+          for (XWPFRun run : parag.getRuns()) {
+            String text = run.getText(0);
+            if (text != null && text.contains("&ln&")) {
+            	System.out.println("entrou linebreak5");
+            	 String[] lines = text.split("&ln&");
+                    run.setText(lines[0], 0); // set first line into XWPFRun
+                    for(int i=1;i<lines.length;i++){
+                    	System.out.println("entrou loop linebreak");
+                        // add break and insert new text
+                        run.addBreak();
+                        run.setText(lines[i]);
+                    }
+              
+              
+            } else {
+                run.setText(text, 0);
+            }
+          } 
+        } 
+        for (XWPFTable table : header.getTables()) {
+          for (XWPFTableRow row : table.getRows()) {
+            for (XWPFTableCell cell : row.getTableCells()) {
+              for (XWPFParagraph parag : cell.getParagraphs()) {
+                for (XWPFRun run : parag.getRuns()) {
+                  String text = run.getText(0);
+                  if (text != null && text.contains("&ln&")) {
+                  	System.out.println("entrou linebreak6");
+                  	 String[] lines = text.split("&ln&");
+                          run.setText(lines[0], 0); // set first line into XWPFRun
+                          for(int i=1;i<lines.length;i++){
+                          	System.out.println("entrou loop linebreak");
+                              // add break and insert new text
+                              run.addBreak();
+                              run.setText(lines[i]);
+                          }
+                    
+                    
+                  } else {
+                      run.setText(text, 0);
+                  }
+                } 
+              } 
+            } 
+          } 
+        } 
+      } 
+      for (XWPFFooter footer : docx.getFooterList()) {
+        for (XWPFParagraph parag : footer.getParagraphs()) {
+          for (XWPFRun run : parag.getRuns()) {
+            String text = run.getText(0);
+            if (text != null && text.contains("&ln&")) {
+            	System.out.println("entrou linebreak7");
+            	 String[] lines = text.split("&ln&");
+                    run.setText(lines[0], 0); // set first line into XWPFRun
+                    for(int i=1;i<lines.length;i++){
+                    	System.out.println("entrou loop linebreak");
+                        // add break and insert new text
+                        run.addBreak();
+                        run.setText(lines[i]);
+                    }
+              
+              
+            } else {
+                run.setText(text, 0);
+            }
+          } 
+        } 
+        for (XWPFTable table : footer.getTables()) {
+          for (XWPFTableRow row : table.getRows()) {
+            for (XWPFTableCell cell : row.getTableCells()) {
+              for (XWPFParagraph parag : cell.getParagraphs()) {
+                for (XWPFRun run : parag.getRuns()) {
+                  String text = run.getText(0);
+                  if (text != null && text.contains("&ln&")) {
+                  	System.out.println("entrou linebreak8");
+                  	 String[] lines = text.split("&ln&");
+                          run.setText(lines[0], 0); // set first line into XWPFRun
+                          for(int i=1;i<lines.length;i++){
+                          	System.out.println("entrou loop linebreak");
+                              // add break and insert new text
+                              run.addBreak();
+                              run.setText(lines[i]);
+                          }
+                    
+                    
+                  } else {
+                      run.setText(text, 0);
+                  }
+                } 
+              } 
+            } 
+          } 
+        } 
+      } 
+    
+  }    
+  
+  
+	public static void insertReplacementRuns(Object obj) {
+	    XWPFDocument docx = (XWPFDocument)obj;
+
+	    for (XWPFParagraph parag : docx.getParagraphs()) {
+//	      for (XWPFRun run : parag.getRuns()) {
+	    	String[] replacementTextSplitOnCarriageReturn = StringUtils.split("", "&QB&");
+
+		    for (int j = 0; j < replacementTextSplitOnCarriageReturn.length; j++) {
+		        String part = replacementTextSplitOnCarriageReturn[j];
+	        
+		        XWPFRun newRun = parag.insertNewRun(j);
+		        newRun.setText(part);
+
+		        if (j+1 < replacementTextSplitOnCarriageReturn.length) {
+		            newRun.addCarriageReturn();
+		        }
+	        
+		    }
+//	      }
+	    }
+	}
+
+
+
+
+}

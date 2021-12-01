@@ -1,0 +1,130 @@
+package br.com.docusignrizzo.service;
+
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+
+import com.sankhya.util.StringUtils;
+
+import br.com.docusignrizzo.br.com.lordsmanager.model.Arquivo;
+import br.com.docusignrizzo.util.Global;
+import br.com.sankhya.jape.EntityFacade;
+import br.com.sankhya.jape.br.com.lordsmanager.dao.JdbcWrapper;
+import br.com.sankhya.jape.sql.NativeSql;
+import br.com.sankhya.jape.vo.DynamicVO;
+import br.com.sankhya.modelcore.MGEModelException;
+import br.com.sankhya.timimob.br.com.lordsmanager.model.utils.EntityFacadeFactoryW;
+
+public class PoiPreencheDoc {
+
+  public ByteArrayOutputStream geraDocPoiLTV(final BigDecimal codOrigem, 
+						                     final BigDecimal codPoi,
+						                     Arquivo arquivo) throws Exception {
+	  
+	System.out.println("Inicio preenche");    
+        
+    EntityFacade dwfEntityFacade = EntityFacadeFactoryW.newEntityFacade();
+    JdbcWrapper jdbcWrapper = Global.iniciaSessao();
+    
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    
+    DynamicVO relatorioVO = (DynamicVO)dwfEntityFacade.findEntityByPrimaryKeyAsVO("TimRelatorioPoi", new Object[] { codPoi });
+    
+    if (relatorioVO == null)
+      throw new Exception("Modelo Word " + codPoi.toString() + " nao encontrado."); 
+    if (relatorioVO.asBlob("ARQUIVO") != null) {
+      String nomeArquivo = relatorioVO.asString("NOMEARQUIVO");
+      if (nomeArquivo == null)
+        throw new MGEModelException("Modelo Word sem nome de arquivo definido."); 
+      nomeArquivo = nomeArquivo.trim();
+      if (!nomeArquivo.toLowerCase().endsWith(".doc") && !nomeArquivo.toLowerCase().endsWith(".docx"))
+        throw new Exception("Modelo " + codPoi + " nao possui arquivo original do tipo 'Word' associado."); 
+      String singleQuery = null;
+      if (relatorioVO.asClob("SINGLEQUERY") != null)
+        singleQuery = new String(relatorioVO.asClob("SINGLEQUERY"));
+      
+      Object doc=null;
+      if (nomeArquivo.toLowerCase().endsWith(".docx")) {
+    	  doc = PoiLibFacade.createDOCX(relatorioVO.asBlob("ARQUIVO"));
+      } else {
+    	  
+    	  doc = PoiLibFacade.createDOC(relatorioVO.asBlob("ARQUIVO"));
+      } 
+      
+	  arquivo.setNumPaginas(PoiLibFacade.getPageCount(doc));
+      //System.out.println("Numero de Paginas: " + arquivo.getNumPaginas().toString());
+      //arquivo.setNumPaginas(17);
+      
+      
+      if (!StringUtils.isEmpty(singleQuery)) {
+        NativeSql sql = new NativeSql(jdbcWrapper);
+        try {
+          sql.appendSql(singleQuery);
+          sql.setNamedParameter("LTVCODIGO", codOrigem); 
+          sql.setMaxRows(1);
+          sql.setFetchSize(1);
+          sql.setScrollableResult(false);
+          ResultSet rset = sql.executeQuery();
+          ResultSetMetaData rsMd = rset.getMetaData();
+          int columsNumber = rsMd.getColumnCount();
+          if (!rset.next())
+            throw new MGEModelException("A query das variaveis do documento nao retornou nenhum registro."); 
+          for (int i = 1; i <= columsNumber; i++) {
+            String variavel = "&" + rsMd.getColumnName(i).trim() + "&";
+            //String valor = StringUtils.getNullAsEmpty(rset.getString(i));
+            String valor = StringUtils.getNullAsEmpty(rset.getString(i));
+            
+            if (nomeArquivo.toLowerCase().endsWith(".docx")) {
+            	PoiLibFacade.replaceTextDOCX(doc, variavel, valor);	
+            } else {
+            	PoiLibFacade.replaceTextDOC(doc, variavel, valor);
+            }
+            
+          } 
+
+          // Trata quebras de linha
+          if (nomeArquivo.toLowerCase().endsWith(".docx")) {
+          	System.out.println("ENTROU DOCX");        	  
+          	PoiLibFacade.lineBreakDOCX(doc);
+          }
+          
+        } finally {
+          NativeSql.releaseResources(sql);
+        } 
+      } 
+      
+//      System.out.println("Ira gravar o pdf na pasta");
+      
+      // 2) Convert POI XWPFDocument 2 PDF with iText
+//      File outFile = new File( "/home/mgeweb/docusign/DocxBig.pdf" );
+//      outFile.getParentFile().mkdirs();
+//      OutputStream out = new FileOutputStream( outFile );
+//      PdfOptions options = PdfOptions.create().fontEncoding( "windows-1250" );
+//      PdfConverter.getInstance().convert( docx, out, options );     
+      
+//      System.out.println("Ira converter byte array");
+//      pdfret = (ByteArrayOutputStream) out;
+      
+      
+      Method methodWrite = doc.getClass().getMethod("write", new Class[] { OutputStream.class });
+      methodWrite.invoke(doc, new Object[] { out });
+
+//      if (nomeArquivo.toLowerCase().endsWith(".doc"))
+//        throw new MGEModelException("Nao e possivel converter documento de extensao \".doc\" em PDF."); 
+      
+      
+      
+//      byte[] pdfData = converter.convert(out.toByteArray());
+      
+//      String fileName = StringUtils.getNullAsEmpty(relatorioVO.asString("NOMEARQUIVO")).toLowerCase().replaceAll("\\.docx?$", ".pdf");
+      
+      
+    }
+    
+    return out;
+ 
+  }
+}

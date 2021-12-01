@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Diagram>
+  <ID>DATABASE</ID>
+  <OriginalElement>f5526397-0b53-4e0d-a5f1-6c0272484e5f.SCHEMA:yesmylor_mobs</OriginalElement>
+  <nodes>
+    <node x="839.0" y="347.0">f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.FILES</node>
+    <node x="263.0" y="1020.0">f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.BOXES</node>
+    <node x="554.5" y="597.0">f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILD_REPORT</node>
+    <node x="851.0" y="751.0">f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILDS</node>
+    <node x="269.0" y="641.0">f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILD_BOXES_REPORT</node>
+    <node x="558.5" y="380.0">f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.PLAYERS</node>
+    <node x="-52.3191935956263" y="629.7744801327735">f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.ITEMS</node>
+    <node x="1060.7144524222117" y="194.19437446827797">f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.PLAYER_STATS</node>
+  </nodes>
+  <notes />
+  <edges>
+    <edge source="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILD_BOXES_REPORT" target="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.BOXES">
+      <point x="0.0" y="159.0" />
+      <point x="0.0" y="-60.0" />
+    </edge>
+    <edge source="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.PLAYER_STATS" target="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.FILES">
+      <point x="-131.5" y="0.0" />
+      <point x="81.0" y="0.0" />
+    </edge>
+    <edge source="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILD_BOXES_REPORT" target="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILD_REPORT">
+      <point x="91.0" y="0.0" />
+      <point x="-85.5" y="0.0" />
+    </edge>
+    <edge source="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILD_REPORT" target="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.PLAYERS">
+      <point x="0.0" y="-203.0" />
+      <point x="0.0" y="60.0" />
+    </edge>
+    <edge source="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILD_REPORT" target="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILDS">
+      <point x="85.5" y="0.0" />
+      <point x="-69.0" y="0.0" />
+    </edge>
+    <edge source="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILD_BOXES_REPORT" target="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.PLAYERS">
+      <point x="0.0" y="-159.0" />
+      <point x="360.0" y="440.0" />
+      <point x="-81.5" y="0.0" />
+    </edge>
+    <edge source="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.FILES" target="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.PLAYERS">
+      <point x="-81.0" y="0.0" />
+      <point x="81.5" y="0.0" />
+    </edge>
+    <edge source="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILD_BOXES_REPORT" target="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.ITEMS">
+      <point x="-91.0" y="0.0" />
+      <point x="98.5" y="0.0" />
+    </edge>
+    <edge source="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.FILES" target="f5526397-0b53-4e0d-a5f1-6c0272484e5f.TABLE:yesmylor_mobs.GUILDS">
+      <point x="0.0" y="93.0" />
+      <point x="0.0" y="-49.0" />
+    </edge>
+  </edges>
+  <settings layout="Orthogonal" zoom="0.917093142272262" x="635.5" y="672.5" />
+  <SelectedNodes />
+  <Categories>
+    <Category>Key columns</Category>
+    <Category>Columns</Category>
+    <Category>Virtual foreign keys</Category>
+  </Categories>
+</Diagram>
+
